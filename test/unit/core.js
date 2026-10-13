@@ -62,7 +62,7 @@ test("jQuery()", function() {
 	var img = jQuery("<img/>");
 	equal( img.length, 1, "Correct number of elements generated for img" );
 	equal( img.parent().length, 0, "Make sure that the generated HTML has no parent." );
-	var div = jQuery("<div/><hr/><code/><b/>");
+	var div = jQuery("<div></div><hr/><code></code><b></b>");
 	equal( div.length, 4, "Correct number of elements generated for div hr code b" );
 	equal( div.parent().length, 0, "Make sure that the generated HTML has no parent." );
 
@@ -951,6 +951,19 @@ test("jQuery.extend(Object, Object)", function() {
 	deepEqual( defaults, defaultsCopy, "Check if not modified: options1 must not be modified" );
 	deepEqual( options1, options1Copy, "Check if not modified: options1 must not be modified" );
 	deepEqual( options2, options2Copy, "Check if not modified: options2 must not be modified" );
+});
+
+test("jQuery.extend( true, ... ) Object.prototype pollution", function() {
+	expect(2);
+
+	jQuery.extend( true, {}, jQuery.parseJSON( "{\"__proto__\": {\"devMode\": true}}" ) );
+	ok( !( "devMode" in {} ), "Object.prototype not polluted" );
+	// Clean up after a failure, so the next check and later tests are not affected
+	delete Object.prototype.devMode;
+
+	jQuery.extend( true, {}, jQuery.parseJSON( "{\"a\": {\"__proto__\": {\"devMode\": true}}}" ) );
+	ok( !( "devMode" in {} ), "Object.prototype not polluted through a nested object" );
+	delete Object.prototype.devMode;
 });
 
 test("jQuery.each(Object,Function)", function() {

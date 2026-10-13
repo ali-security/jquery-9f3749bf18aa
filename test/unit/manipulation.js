@@ -1261,7 +1261,7 @@ var testHtml = function(valueObj) {
 	}
 	ok( pass, "Set HTML" );
 
-	div = jQuery("<div/>").html( valueObj("<div id='parent_1'><div id='child_1'/></div><div id='parent_2'/>") );
+	div = jQuery("<div/>").html( valueObj("<div id='parent_1'><div id='child_1'></div></div><div id='parent_2'></div>") );
 
 	equal( div.children().length, 2, "Make sure two child nodes exist." );
 	equal( div.children().children().length, 1, "Make sure that a grandchild exists." );
@@ -1747,8 +1747,86 @@ test("Guard against exceptions when clearing safeChildNodes", function() {
 	var div;
 
 	try {
-		div = jQuery("<div/><hr/><code/><b/>");
+		div = jQuery("<div></div><hr/><code></code><b></b>");
 	} catch(e) {}
 
 	ok( div && div.jquery, "Created nodes safely, guarded against exceptions on safeChildNodes[ -1 ]" );
+});
+
+test("Self-closing non-void tags are not expanded (gh-4642)", function() {
+	expect(6);
+
+	var div;
+
+	div = jQuery("<div></div>").html("<div/><div/>");
+	equal( div.children().length, 1, "html(): only one child exists" );
+	equal( div.children().children().length, 1, "html(): the second div is nested in the first one" );
+
+	div = jQuery("<div></div>").append("<div/><div/>");
+	equal( div.children().length, 1, "append(): only one child exists" );
+	equal( div.children().children().length, 1, "append(): the second div is nested in the first one" );
+
+	div = jQuery("<div/><div/>");
+	equal( div.length, 1, "jQuery(html): only one element is created" );
+	equal( div.children().length, 1, "jQuery(html): the second div is nested in the first one" );
+});
+
+test("<option> elements are not wrapped in a <select> (gh-4647)", function() {
+	expect(6);
+
+	// The wrapping <select> used to be closed by the markup itself, moving the rest
+	// of it out of the select (and so out of a sanitizer's view) and dropping the option
+	var html = "<option>a</option></select><b>b</b>",
+		elems = jQuery( html );
+
+	equal( elems.length, 2, "jQuery(html): two nodes are created" );
+	equal( elems.length && elems[ 0 ].nodeName.toLowerCase(), "option", "jQuery(html): the first node is the option" );
+	equal( elems.length && elems[ elems.length - 1 ].nodeName.toLowerCase(), "b", "jQuery(html): the last node is the b" );
+
+	equal( jQuery("<div></div>").html( html ).children().length, 2, "html(): two children are created" );
+	equal( jQuery("<div></div>").append( html ).children().length, 2, "append(): two children are created" );
+
+	equal( jQuery("<select></select>").html("<option>O1</option><option>O2</option>").children("option").length, 2,
+		"Options can still be set as the content of a select" );
+});
+
+test("Sanitized HTML doesn't get unsanitized (gh-4642, gh-4647)", function() {
+	// Thanks to Masato Kinugawa from Cure53 for providing the test cases
+	var i,
+		called = {},
+		container = jQuery("<div></div>").appendTo("#qunit-fixture"),
+		tests = [
+			"<img alt=\"<x\" title=\"/><img src=url404 onerror=xss(0)>\">",
+			"<img alt=\"\n<x\" title=\"/>\n<img src=url404 onerror=xss(1)>\">",
+			"<style><style/><img src=url404 onerror=xss(2)>",
+			"<xmp><xmp/><img src=url404 onerror=xss(3)>",
+			"<title><title /><img src=url404 onerror=xss(4)>",
+			"<iframe><iframe/><img src=url404 onerror=xss(5)>",
+			"<noframes><noframes/><img src=url404 onerror=xss(6)>",
+			"<noscript><noscript/><img src=url404 onerror=xss(7)>",
+			"<foo\" alt=\"\" title=\"/><img src=url404 onerror=xss(8)>\">",
+			"<img alt=\"<x\" title=\"\" src=\"/><img src=url404 onerror=xss(9)>\">",
+			"<noscript/><img src=url404 onerror=xss(10)>",
+			"<option><style></option></select><img src=url404 onerror=xss(11)></style>"
+		];
+
+	expect( tests.length );
+	stop();
+
+	window.xss = function( n ) {
+		called[ n ] = true;
+	};
+
+	for ( i = 0; i < tests.length; i++ ) {
+		jQuery("<div></div>").appendTo( container ).html( tests[ i ] );
+	}
+
+	// Give the injected images time to fail loading
+	setTimeout(function() {
+		for ( i = 0; i < tests.length; i++ ) {
+			ok( !called[ i ], "Insecure code wasn't executed, input: " + tests[ i ] );
+		}
+		window.xss = undefined;
+		start();
+	}, 1000 );
 });

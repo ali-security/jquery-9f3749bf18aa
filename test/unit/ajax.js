@@ -1164,6 +1164,25 @@ test("load('url selector')", function() {
 	});
 });
 
+test("load('url selector') - never executes scripts, whatever their end tag looks like (CVE-2020-7656)", function() {
+	expect(4);
+	stop();
+
+	window.loadScriptExecuted = false;
+	window.loadScriptWhitespaceExecuted = false;
+	window.loadScriptAttributeExecuted = false;
+
+	jQuery("#first").load("data/load_scripts.html div.user", function() {
+		equal( jQuery(this).children("div").length, 2, "Verify that specific elements were injected" );
+		ok( !window.loadScriptExecuted, "Script was not executed" );
+		ok( !window.loadScriptWhitespaceExecuted, "Script with whitespace before the '>' of its end tag was not executed" );
+		ok( !window.loadScriptAttributeExecuted, "Script with an attribute in its end tag was not executed" );
+
+		window.loadScriptExecuted = window.loadScriptWhitespaceExecuted = window.loadScriptAttributeExecuted = undefined;
+		start();
+	});
+});
+
 test("load(String, Function) with ajaxSetup on dataType json, see #2046", function() {
 	expect(1);
 	stop();
@@ -1659,6 +1678,57 @@ test("jQuery.ajax() - script by content-type", function() {
 
 	).always(function() {
 		start();
+	});
+});
+
+test("jQuery.ajax() - do not execute js (crossOrigin) (gh-2432)", function() {
+	// data/script.php runs an extra ok() if it is executed
+	expect(2);
+
+	stop();
+
+	jQuery.when(
+
+		jQuery.ajax({
+			url: "data/script.php",
+			data: { header: "script" },
+			crossDomain: true,
+			success: function( data ) {
+				equal( typeof data, "string", "text/javascript response is returned as text" );
+			}
+		}),
+
+		jQuery.ajax({
+			url: "data/script.php",
+			data: { header: "ecma" },
+			crossDomain: true,
+			success: function( data ) {
+				equal( typeof data, "string", "application/ecmascript response is returned as text" );
+			}
+		})
+
+	).always(function() {
+		start();
+	});
+});
+
+test("jQuery.ajax() - execute js for crossOrigin when dataType option is provided (gh-2432)", function() {
+	// data/script.php runs the second ok()
+	expect(2);
+
+	stop();
+
+	jQuery.ajax({
+		url: "data/script.php",
+		data: { header: "ecma" },
+		crossDomain: true,
+		dataType: "script",
+		success: function() {
+			ok( true, "success" );
+		},
+		complete: function() {
+			start();
+		}
 	});
 });
 

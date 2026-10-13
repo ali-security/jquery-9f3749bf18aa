@@ -11,7 +11,6 @@ var r20 = /%20/g,
 	rnoContent = /^(?:GET|HEAD)$/,
 	rprotocol = /^\/\//,
 	rquery = /\?/,
-	rscript = /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
 	rselectTextarea = /^(?:select|textarea)/i,
 	rspacesAjax = /\s+/,
 	rts = /([?&])_=[^&]*/,
@@ -198,6 +197,8 @@ jQuery.fn.extend({
 			data: params,
 			// Complete callback (responseText is used internally)
 			complete: function( jqXHR, status, responseText ) {
+				var fragment;
+
 				// Store the response as specified by the jqXHR object
 				responseText = jqXHR.responseText;
 				// If successful, inject the HTML into all the matched elements
@@ -207,13 +208,23 @@ jQuery.fn.extend({
 					jqXHR.done(function( r ) {
 						responseText = r;
 					});
+
+					// If a selector was specified, parse the document into a detached
+					// fragment first: jQuery.clean moves every script element out into
+					// a throwaway array, so none of them is ever executed
+					// (a regex strip is bypassable, e.g. by whitespace in the end tag)
+					if ( selector ) {
+						fragment = document.createDocumentFragment();
+						jQuery.clean( [ responseText ], document, fragment, [] );
+					}
+
 					// See if a selector was specified
 					self.html( selector ?
 						// Create a dummy div to hold the results
 						jQuery("<div>")
-							// inject the contents of the document in, removing the scripts
+							// inject the contents of the document in, without the scripts
 							// to avoid any 'Permission Denied' errors in IE
-							.append(responseText.replace(rscript, ""))
+							.append( fragment )
 
 							// Locate the specified elements
 							.find(selector) :

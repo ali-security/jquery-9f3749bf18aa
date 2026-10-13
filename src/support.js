@@ -101,6 +101,12 @@ jQuery.support = (function() {
 	input.checked = true;
 	support.noCloneChecked = input.cloneNode( true ).checked;
 
+	// Support: IE <=9 only
+	// IE <=9 replaces <option> tags with their contents when inserted outside of
+	// the select element.
+	div.innerHTML = "<option></option>";
+	support.option = !!div.lastChild;
+
 	// Make sure that the options inside disabled selects aren't marked as disabled
 	// (WebKit marks them as disabled)
 	select.disabled = true;
