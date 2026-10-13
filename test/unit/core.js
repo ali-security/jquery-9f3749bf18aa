@@ -18,7 +18,7 @@ test("Basic requirements", function() {
 });
 
 test("jQuery()", function() {
-	expect(29);
+	expect(32);
 
 	// Basic constructor's behavior
 
@@ -70,9 +70,15 @@ test("jQuery()", function() {
 
 	equal( jQuery(document.body).get(0), jQuery("body").get(0), "Test passing an html node to the factory" );
 
+	var elem = jQuery("  <em>hello</em>")[0];
+	equal( elem.nodeName.toLowerCase(), "em", "leading space" );
+
+	elem = jQuery("\n\n<em>world</em>")[0];
+	equal( elem.nodeName.toLowerCase(), "em", "leading newlines" );
+
 	var exec = false;
 
-	var elem = jQuery("<div/>", {
+	elem = jQuery("<div/>", {
 		width: 10,
 		css: { paddingLeft:1, paddingRight:1 },
 		click: function(){ ok(exec, "Click executed."); },
@@ -104,7 +110,6 @@ test("jQuery()", function() {
 	elem.remove();
 
 	equal( jQuery(" <div/> ").length, 1, "Make sure whitespace is trimmed." );
-	equal( jQuery(" a<div/>b ").length, 1, "Make sure whitespace and other characters are trimmed." );
 
 	var long = "";
 	for ( var i = 0; i < 128; i++ ) {
@@ -112,7 +117,20 @@ test("jQuery()", function() {
 	}
 
 	equal( jQuery(" <div>" + long + "</div> ").length, 1, "Make sure whitespace is trimmed on long strings." );
-	equal( jQuery(" a<div>" + long + "</div>b ").length, 1, "Make sure whitespace and other characters are trimmed on long strings." );
+
+	// Strict HTML recognition (#11290: must start with <)
+	// Text before the first tag means the string is a selector, not HTML
+	var notHtml = function( str ) {
+		try {
+			return jQuery( str );
+		} catch ( e ) {
+			// Sizzle may reject the string as an invalid selector
+			return jQuery();
+		}
+	};
+	equal( notHtml("a<b>xss</b>").length, 0, "Leading text before a tag is not parsed as HTML (#11290)" );
+	equal( notHtml("x<img src=x onerror=jQuery.noop()>").length, 0, "Leading text before an event-handler payload is not parsed as HTML (#11290)" );
+	equal( jQuery("div[title='<b>xss</b>']").length, 0, "Markup inside a selector attribute value is not parsed as HTML (#11290)" );
 });
 
 test("selector state", function() {
